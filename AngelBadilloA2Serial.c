@@ -83,10 +83,12 @@ struct CmplxNum CmplxMult(struct CmplxNum X, struct CmplxNum Y);
 //********************************************************************
 void computeFFT(double *XR, double *XI, double *R, double *I, int N);
 
-int main()
+int main(void)
 {
+    // Input values for samples
     double R[N_SAMPLES] = {3.6, 2.9, 5.6, 4.8, 3.3, 5.9, 5, 4.3};
     double I[N_SAMPLES] = {2.6, 6.3, 4, 9.1, 0.4, 4.8, 2.6, 4.1};
+    // Output values for coefficients
     double XR[N_SAMPLES] = {0};
     double XI[N_SAMPLES] = {0};
 
