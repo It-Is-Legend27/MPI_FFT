@@ -66,7 +66,7 @@ struct CmplxNum CmplxSub(struct CmplxNum X, struct CmplxNum Y);
 struct CmplxNum CmplxMult(struct CmplxNum X, struct CmplxNum Y);
 
 //*******************************************************************
-// computeFFT
+// partial_FFT
 // @param XR an array of doubles of size 8192 containing real parts
 // of output for N no. of FTT coefficients.
 // @param XI an array of doubles of size 8192 containing imaginary
@@ -82,7 +82,7 @@ struct CmplxNum CmplxMult(struct CmplxNum X, struct CmplxNum Y);
 // have the output for N no. of FFT coefficients X(0) to X(N-1).
 // @return void
 //********************************************************************
-void computeFFT(double *XR, double *XI, double *R, double *I, int N);
+void partial_FFT(double *XR, double *XI, double *R, double *I, int N);
 
 int main(void)
 {
@@ -150,7 +150,7 @@ struct CmplxNum CmplxMult(struct CmplxNum X, struct CmplxNum Y)
     return Z;
 }
 
-void computeFFT(double *XR, double *XI, double *R, double *I, int N)
+void partial_FFT(double *XR, double *XI, double *R, double *I, int N)
 {
     for (int k = 0; k < N / 2 - 1; k++)
     {
