@@ -159,6 +159,19 @@ int main(void)
         printf("%lf\n%lf\n", total_r, total_i);
     }
 
+    free(local_XR_l);
+    free(local_XR_r);
+    free(local_XI_l);
+    free(local_XI_r);
+    free(R);
+    free(I);
+
+    if(!rank)
+    {
+        free(XR);
+        free(XI);
+    }
+
     MPI_Finalize();
     return 0;
 }
