@@ -94,14 +94,19 @@ int main(void)
 
     computeFFT(XR, XI, R, I, N_SAMPLES);
 
-    printf("==========================================================================\n");
-    printf("TOTAL PROCESSED SAMPLES: %d\n", N_SAMPLES);
-    printf("==========================================================================\n");
-    for (int i = 0; i < 11; ++i)
-    {
-        printf("XR[%d]: %.6f          XI[%d]: %.6fi\n", i, XR[i], i, XI[i]);
+    double total_r = 0;
+    double total_i = 0;
         printf("==========================================================================\n");
-    }
+        printf("TOTAL PROCESSED SAMPLES: %d\n", N_SAMPLES);
+        printf("==========================================================================\n");
+        for (int i = 0; i < N_SAMPLES; ++i)
+        {
+            total_r += XR[i];
+            total_i += XI[i];
+            printf("XR[%d]: %.6f          XI[%d]: %.6fi\n", i, XR[i], i, XI[i]);
+            printf("==========================================================================\n");
+        }
+        printf("%lf\n%lf\n", total_r, total_i);
 }
 
 struct CmplxNum CmplxAdd(struct CmplxNum X, struct CmplxNum Y)
@@ -127,7 +132,7 @@ struct CmplxNum CmplxMult(struct CmplxNum X, struct CmplxNum Y)
 
 void computeFFT(double *XR, double *XI, double *R, double *I, int N)
 {
-    for (int k = 0; k < N / 2 - 1; k++)
+    for (int k = 0; k < N / 2; k++)
     {
         // Calculate twiddle factor
         struct CmplxNum tFactor = {.a = cos(2 * PI * k / N), .bi = -sin(2 * PI * k / N)};

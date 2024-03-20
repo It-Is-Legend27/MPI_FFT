@@ -82,11 +82,14 @@ struct CmplxNum CmplxMult(struct CmplxNum X, struct CmplxNum Y);
 // have the output for N no. of FFT coefficients X(0) to X(N-1).
 // @return void
 //********************************************************************
-void partial_FFT(double *XR, double *XI, double *R, double *I, int N);
+void partial_FFT(double *local_XR_l, double *local_XI_l, double *local_XR_r,
+                 double *local_XI_r, double *R, double *I, int N, int local_a,
+                 int local_b);
 
 int main(void)
 {
     int rank, comm_sz; // Process rank and number of processes
+    int local_a, local_b;
     int local_n; // Number of coefficients to be computed by each process
 
     double *R = NULL, *I = NULL;   // Input values for samples
@@ -100,22 +103,27 @@ int main(void)
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     // Number of coefficients to be computed by each process
-    local_n = N_SAMPLES / comm_sz;
+    local_n = (N_SAMPLES / comm_sz) / 2;
+
+    // Starting index for coefficients for each process
+    local_a = rank * local_n;
+    // Ending index for coefficients for each process
+    local_b = (rank + 1) * local_n - 1;
 
     // All proccesses require samples
     R = (double *)calloc(N_SAMPLES, sizeof(double));
     I = (double *)calloc(N_SAMPLES, sizeof(double));
-    
-    // Set values for first 8 samples, the rest will be 0's.
-    memcpy(R, (double[]){3.6, 2.9, 5.6, 4.8, 3.3, 5.9, 5, 4.3}, sizeof(double)* 8);
-    memcpy(I, (double[]){2.6, 6.3, 4, 9.1, 0.4, 4.8, 2.6, 4.1}, sizeof(double)* 8);
-    
-    // Arrays to store coefficients stored by each process
-    local_XR_l = (double *)calloc(local_n / 2, sizeof(double));
-    local_XI_l = (double *)calloc(local_n / 2, sizeof(double));
-    local_XR_r = (double *)calloc(local_n / 2, sizeof(double));
-    local_XI_r = (double *)calloc(local_n / 2, sizeof(double));
 
+    // Set values for first 8 samples, the rest will be 0's.
+    memcpy(R, (double[]){3.6, 2.9, 5.6, 4.8, 3.3, 5.9, 5, 4.3}, sizeof(double) * 8);
+    memcpy(I, (double[]){2.6, 6.3, 4, 9.1, 0.4, 4.8, 2.6, 4.1}, sizeof(double) * 8);
+
+    // Arrays to store coefficients stored by each process
+    local_XR_l = (double *)calloc(local_n, sizeof(double));
+    local_XI_l = (double *)calloc(local_n, sizeof(double));
+    local_XR_r = (double *)calloc(local_n, sizeof(double));
+    local_XI_r = (double *)calloc(local_n, sizeof(double));
+    
     // Process 0 does this
     if (!rank)
     {
@@ -123,7 +131,33 @@ int main(void)
         XI = (double *)calloc(N_SAMPLES, sizeof(double));
     }
 
+    partial_FFT(local_XR_l, local_XI_l, local_XR_r, local_XI_r, R, I, N_SAMPLES, local_a, local_b);
+    
+    MPI_Gather(local_XR_l, local_n, MPI_DOUBLE, XR, local_n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Gather(local_XI_l, local_n, MPI_DOUBLE, XI, local_n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
+    // Synchronize to avoid conflicts
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    MPI_Gather(local_XR_r, local_n, MPI_DOUBLE, (XR + N_SAMPLES / 2), local_n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Gather(local_XI_r, local_n, MPI_DOUBLE, (XI + N_SAMPLES / 2), local_n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    if (!rank)
+    {
+        double total_r = 0;
+        double total_i = 0;
+        printf("==========================================================================\n");
+        printf("TOTAL PROCESSED SAMPLES: %d\n", N_SAMPLES);
+        printf("==========================================================================\n");
+        for (int i = 0; i < N_SAMPLES; ++i)
+        {
+            total_r += XR[i];
+            total_i += XI[i];
+            printf("XR[%d]: %.6f          XI[%d]: %.6fi\n", i, XR[i], i, XI[i]);
+            printf("==========================================================================\n");
+        }
+        printf("%lf\n%lf\n", total_r, total_i);
+    }
 
     MPI_Finalize();
     return 0;
@@ -150,9 +184,9 @@ struct CmplxNum CmplxMult(struct CmplxNum X, struct CmplxNum Y)
     return Z;
 }
 
-void partial_FFT(double *XR, double *XI, double *R, double *I, int N)
-{
-    for (int k = 0; k < N / 2 - 1; k++)
+void partial_FFT(double *local_XR_l, double *local_XI_l, double *local_XR_r, double *local_XI_r, double *R, double *I, int N, int local_a, int local_b)
+{   
+    for (int k = local_a; k <= local_b; k++)
     {
         // Calculate twiddle factor
         struct CmplxNum tFactor = {.a = cos(2 * PI * k / N), .bi = -sin(2 * PI * k / N)};
@@ -176,23 +210,26 @@ void partial_FFT(double *XR, double *XI, double *R, double *I, int N)
             oddPart = CmplxAdd(oddPart, resOdd);
         }
 
+        // Calculate index for element in the array
+        int arr_idx = k - local_a;
+
         // Adding even part for E(k)
-        XR[k] = evenPart.a;
-        XI[k] = evenPart.bi;
+        local_XR_l[arr_idx] = evenPart.a;
+        local_XI_l[arr_idx] = evenPart.bi;
 
         // Adding even part for E(k + N/2)
-        XR[k + N / 2] = evenPart.a;
-        XI[k + N / 2] = evenPart.bi;
+        local_XR_r[arr_idx] = evenPart.a;
+        local_XI_r[arr_idx] = evenPart.bi;
 
         // Adjusting odd parts by twiddle factor
         struct CmplxNum temp = CmplxMult(tFactor, oddPart);
 
         // Adding odd part for O(k)
-        XR[k] += temp.a;
-        XI[k] += temp.bi;
+        local_XR_l[arr_idx] += temp.a;
+        local_XI_l[arr_idx] += temp.bi;
 
         // Subtracting odd part for O(k + N/2)
-        XR[k + N / 2] -= temp.a;
-        XI[k + N / 2] -= temp.bi;
+        local_XR_r[arr_idx] -= temp.a;
+        local_XI_r[arr_idx] -= temp.bi;
     }
 }
